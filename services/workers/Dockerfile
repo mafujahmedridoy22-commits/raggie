@@ -6,7 +6,7 @@
 ARG PYTHON_IMAGE=python:3.13-slim
 
 # Pinned uv release (bump deliberately, together with the lockfile tooling).
-FROM ghcr.io/astral-sh/uv:0.9.20 AS uv
+FROM ghcr.io/astral-sh/uv:0.13.7 AS uv
 
 # ── build stage: install exactly what uv.lock pins ───────────
 FROM ${PYTHON_IMAGE} AS build
