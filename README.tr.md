@@ -245,7 +245,8 @@ bağlayıcısına (Onyx) ihtiyacınız varsa bu projeler size daha uygun olabili
 
 ## Dokümantasyon
 
-Dokümanlar İngilizcedir.
+Dokümanlar İngilizcedir. Türkçe bir başlangıç rehberi için bkz.
+[Başlarken (Türkçe)](docs/tr/getting-started.md).
 
 - [Başlarken](docs/getting-started.md) · [Yapılandırma referansı](docs/configuration.md)
 - [LLM sağlayıcıları](docs/llm-providers.md) · [Embedding](docs/embeddings.md)
