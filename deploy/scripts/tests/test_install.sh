@@ -140,3 +140,41 @@ test_version_and_ref_are_validated_before_use() {
     assert_contains "$FAIL_OUT" "--ref"
   done
 }
+
+# ── --dry-run (issue #23) ───────────────────────────────────────────────────
+
+# r_env_set records the planned change but writes nothing under --dry-run.
+test_dry_run_r_env_set_does_not_write() {
+  load_installer
+  . "$SCRIPTS_DIR/lib.sh"
+  printf 'A=old\n' >"$T/.env"
+  RAGGIE_DRY_RUN=1 r_env_set "$T/.env" A new
+  assert_eq "$(r_env_get "$T/.env" A)" old "dry-run modified the file"
+  [[ "${R_CHANGES[*]}" == *"A old -> new"* ]] || fail_test "dry-run did not record the change"
+}
+
+# r_env_backup copies nothing under --dry-run.
+test_dry_run_r_env_backup_copies_nothing() {
+  load_installer
+  . "$SCRIPTS_DIR/lib.sh"
+  printf 'x=1\n' >"$T/.env"
+  RAGGIE_DRY_RUN=1 r_env_backup "$T/.env" >/dev/null
+  assert_eq "$(ls "$T") " ".env " "dry-run created a backup file"
+}
+
+# The full wizard under --dry-run prints planned changes and writes nothing.
+test_main_source_mode_dry_run_writes_nothing() {
+  local repo="$T/repo" out
+  mkdir -p "$repo/deploy/compose"
+  cp "$T/.env.example" "$T/.env.embeddings.example" "$repo/"
+  cp -R "$SCRIPTS_DIR" "$repo/deploy/scripts"
+  out="$(RAGGIE_SKIP_PREFLIGHT=1 bash "$REPO_ROOT/web/public/install.sh" --source "$repo" --yes --dry-run --skip-checks --embeddings local --llm mock --public-url http://h.example 2>&1)"
+  assert_contains "$out" "configuration changes"
+  assert_not_exists "$repo/.env"
+  assert_not_exists "$repo/.env.embeddings"
+  assert_not_exists "$repo/.raggie/docker-compose.images.yml"
+  assert_not_exists "$repo/.raggie/compose"
+  assert_not_contains "$out" "Onboarding:"
+}
+
+assert_not_exists() { [[ ! -e "$1" ]] || fail_test "$1 unexpectedly exists"; }

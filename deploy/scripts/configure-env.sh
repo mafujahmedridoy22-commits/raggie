@@ -21,9 +21,13 @@ raggie_env_init() {
     r_env_add_missing "$env" "$example"
   else
     RAGGIE_SETUP_MODE=fresh
-    (umask 077 && cp "$example" "$env")
-    chmod 600 "$env"
-    r_log "created $env from .env.example"
+    if [[ "${RAGGIE_DRY_RUN:-0}" == 1 ]]; then
+      r_log "would create $env from .env.example (--dry-run)"
+    else
+      (umask 077 && cp "$example" "$env")
+      chmod 600 "$env"
+      r_log "created $env from .env.example"
+    fi
   fi
   if [[ -f "$dir/.env.embeddings" ]]; then
     backup="$(r_env_backup "$dir/.env.embeddings")"

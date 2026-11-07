@@ -23,7 +23,7 @@ r_note() { printf '%s%s%s\n' "$R_DIM" "$*" "$R_OFF" >&2; }
 
 # ── flags ─────────────────────────────────────────────────────────────────────
 # Flags without a value. Everything else listed in R_VALUE_FLAGS takes one.
-R_BOOL_FLAGS=" yes reconfigure accept-data-transfer skip-probe build pull skip-checks no-start "
+R_BOOL_FLAGS=" yes dry-run reconfigure accept-data-transfer skip-probe build pull skip-checks no-start "
 R_VALUE_FLAGS=" version ref source install-dir locale public-url domain acme-email http-port https-port
   embeddings embeddings-preset embeddings-api-key embeddings-base-url embeddings-model
   embedding-dim embeddings-query-prefix embeddings-passage-prefix
@@ -216,13 +216,15 @@ r_env_set() {
   old="$(r_env_get "$file" "$key")"
   if r_env_has "$file" "$key" && [[ "$old" == "$value" ]]; then return 0; fi
   quoted="$(r_env_quote "$value")" || r_die "cannot write $key to $(basename "$file")"
+  R_CHANGES+=("$(basename "$file"): $key $(r_show "$key" "$old") -> $(r_show "$key" "$value")")
+  if [[ "${RAGGIE_DRY_RUN:-0}" == 1 ]]; then return 0; fi
   if r_env_has "$file" "$key"; then
     tmp="$(mktemp "${file}.XXXXXX")"
     K="$key" V="$quoted" awk '
       BEGIN { k = ENVIRON["K"] "="; v = ENVIRON["V"] }
       index($0, k) == 1 {
         rest = substr($0, length(k) + 1); comment = ""
-        if (rest !~ /^["'"'"']/ && match(rest, /[ \t]+#.*$/)) comment = substr(rest, RSTART)
+        if (rest !~ /^["'"'']/ && match(rest, /[ \t]+#.*$/)) comment = substr(rest, RSTART)
         print k v comment; next
       }
       { print }
@@ -233,7 +235,6 @@ r_env_set() {
     [[ ! -s "$file" || "$(tail -c1 "$file")" == "" ]] || printf '\n' >>"$file"
     printf '%s=%s\n' "$key" "$quoted" >>"$file"
   fi
-  R_CHANGES+=("$(basename "$file"): $key $(r_show "$key" "$old") -> $(r_show "$key" "$value")")
 }
 
 r_file_mode() { stat -c '%a' "$1" 2>/dev/null || stat -f '%Lp' "$1"; }
@@ -243,6 +244,10 @@ r_env_backup() {
   local backup
   backup="$1.bak.$(date +%Y%m%d%H%M%S)"
   [[ ! -e "$backup" ]] || backup="$backup.$$"
+  if [[ "${RAGGIE_DRY_RUN:-0}" == 1 ]]; then
+    printf '%s' "$backup"
+    return 0
+  fi
   cp -p "$1" "$backup"
   printf '%s' "$backup"
 }
@@ -259,12 +264,14 @@ r_env_add_missing() {
     fi
     key="${line%%=*}"
     if [[ "$key" =~ ^[A-Z0-9_]+$ ]] && ! r_env_has "$file" "$key"; then
-      if ((added == 0)); then
-        printf '\n# ── Added by the Raggie installer on %s (new settings, defaults) ──\n' "$(date +%Y-%m-%d)" >>"$file"
-      fi
-      printf '%s%s\n' "$block" "$line" >>"$file"
       R_CHANGES+=("$(basename "$file"): $key added (default $(r_show "$key" "$(r_env_get "$example" "$key")"))")
-      added=$((added + 1))
+      if [[ "${RAGGIE_DRY_RUN:-0}" != 1 ]]; then
+        if ((added == 0)); then
+          printf '\n# ── Added by the Raggie installer on %s (new settings, defaults) ──\n' "$(date +%Y-%m-%d)" >>"$file"
+        fi
+        printf '%s%s\n' "$block" "$line" >>"$file"
+        added=$((added + 1))
+      fi
     fi
     block=""
   done <"$example"

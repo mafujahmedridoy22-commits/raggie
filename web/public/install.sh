@@ -74,6 +74,8 @@ Behaviour
   --skip-probe               Do not live-test cloud/LLM endpoints
   --skip-checks              Continue below the RAM/disk minimums or with busy ports
   --no-start                 Configure only; do not pull, build or start
+  --dry-run                  Show the planned .env / .env.embeddings changes (masked)
+                             without writing or starting anything (requires --source)
   -h, --help
 
 Every flag also reads an env var: --embeddings-api-key -> RAGGIE_EMBEDDINGS_API_KEY.
