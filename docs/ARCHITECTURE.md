@@ -139,6 +139,29 @@ Details:
 6. Status becomes `SUCCESS`, or `FAILED` with a reason. Failed documents are
    retried by a sweep with exponential back-off (up to `max_retries`, default 3).
 
+```mermaid
+sequenceDiagram
+  participant WEB as web app
+  participant CP as control-plane
+  participant S3 as Object store (SeaweedFS/S3)
+  participant RD as Valkey Streams
+  participant ING as ingestion-worker
+  participant EMB as embeddings gateway
+  participant QD as Qdrant
+  WEB->>CP: multipart upload (16 MiB parts, retried)
+  CP->>S3: store original file
+  CP->>CP: insert document row (status PENDING)
+  CP->>RD: publish raggie.document.uploaded
+  RD->>ING: claim event (consumer group)
+  ING->>ING: parse in isolated child process (hard limits)
+  ING->>ING: chunk text (1500 chars / 300 overlap)
+  ING->>EMB: embed batches of 64 (dense + sparse)
+  EMB-->>ING: vectors
+  ING->>QD: upsert points (deterministic uuid5 ids)
+  ING->>CP: status SUCCESS | FAILED
+  CP->>RD: publish processed / failed (status bookkeeping)
+```
+
 Deleting a document soft-deletes its row and publishes
 `raggie.document.deleted`; the worker then removes its Qdrant points and its
 object from the object store.
