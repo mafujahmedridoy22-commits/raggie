@@ -16,16 +16,24 @@ raggie_env_init() {
   [[ -f "$example" ]] || r_die "$example not found"
   if [[ -f "$env" ]]; then
     RAGGIE_SETUP_MODE=upgrade
-    backup="$(r_env_backup "$env")"
-    r_log "existing .env found: upgrade mode (backup: $backup)"
+    if [[ "${R_DRY_RUN:-0}" == 1 ]]; then
+      r_log "existing .env found: upgrade mode (dry-run: no backup written)"
+    else
+      backup="$(r_env_backup "$env")"
+      r_log "existing .env found: upgrade mode (backup: $backup)"
+    fi
     r_env_add_missing "$env" "$example"
   else
     RAGGIE_SETUP_MODE=fresh
-    (umask 077 && cp "$example" "$env")
-    chmod 600 "$env"
-    r_log "created $env from .env.example"
+    if [[ "${R_DRY_RUN:-0}" == 1 ]]; then
+      r_log "dry-run: would create $env from .env.example"
+    else
+      (umask 077 && cp "$example" "$env")
+      chmod 600 "$env"
+      r_log "created $env from .env.example"
+    fi
   fi
-  if [[ -f "$dir/.env.embeddings" ]]; then
+  if [[ -f "$dir/.env.embeddings" ]] && [[ "${R_DRY_RUN:-0}" != 1 ]]; then
     backup="$(r_env_backup "$dir/.env.embeddings")"
     r_note "    .env.embeddings backup: $backup"
   fi
