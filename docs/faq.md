@@ -72,6 +72,33 @@ The web UI is available in Turkish and English. Answers follow the language of
 the question. Retrieval uses a multilingual embedding model
 (`intfloat/multilingual-e5-large`).
 
+### How do I switch embedding models? Do I need to re-embed?
+
+Yes, switching the embedding model requires re-embedding your documents. Vectors
+from different models are not comparable, so each embedding profile (provider,
+model, dimension, prefixes and extra JSON; URLs and keys are excluded) has a
+**fingerprint** and its own Qdrant collection — the default local e5 profile uses
+`raggie_chunks_d1024`, any other profile uses `raggie_chunks_d{dim}_{fingerprint}`.
+Two models with the same dimension never share a collection.
+
+When the gateway's fingerprint differs from the one your documents were embedded
+with, the control plane follows `EMBEDDINGS_FINGERPRINT_POLICY`:
+
+| Policy | Behaviour |
+|---|---|
+| `block_ingest` (default) | The app stays up, new uploads are refused, and admins are told to re-embed. |
+| `refuse_boot` | The control plane will not start until the mismatch is resolved. |
+| `auto_reindex` | Re-embeds automatically, but only if `EMBEDDINGS_REEMBED_CONFIRM` is set to the **new** fingerprint (a deliberate confirmation). |
+
+Re-embedding writes into the new collection; the old collection is left in place
+until you delete it, so you can roll back by switching the profile back. Documents
+not yet re-embedded are not searchable under the new profile, so plan a
+maintenance window for large corpora. Zero-downtime migration between profiles is
+planned for a later release. See
+[embeddings.md](embeddings.md#changing-models-and-re-embedding) for the full
+details, including how to switch the reranker alone (which never requires
+re-embedding).
+
 ### How do citations and the "hallucination detector" work?
 
 The model is given numbered sources and asked to cite them as `[1]`, `[2]`.
