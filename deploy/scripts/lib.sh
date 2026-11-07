@@ -23,7 +23,7 @@ r_note() { printf '%s%s%s\n' "$R_DIM" "$*" "$R_OFF" >&2; }
 
 # ── flags ─────────────────────────────────────────────────────────────────────
 # Flags without a value. Everything else listed in R_VALUE_FLAGS takes one.
-R_BOOL_FLAGS=" yes reconfigure accept-data-transfer skip-probe build pull skip-checks no-start "
+R_BOOL_FLAGS=" yes reconfigure accept-data-transfer skip-probe build pull skip-checks no-start dry-run "
 R_VALUE_FLAGS=" version ref source install-dir locale public-url domain acme-email http-port https-port
   embeddings embeddings-preset embeddings-api-key embeddings-base-url embeddings-model
   embedding-dim embeddings-query-prefix embeddings-passage-prefix
@@ -210,12 +210,15 @@ r_env_quote() {
 }
 
 # r_env_set FILE KEY VALUE — replace KEY's value in place (keeping an inline
-# comment) or append it. Records the change when the value differs.
+# comment) or append it. In dry-run mode (R_DRY_RUN=1) the change is only
+# recorded so the plan can be printed, never written.
 r_env_set() {
   local file="$1" key="$2" value="$3" old quoted tmp
   old="$(r_env_get "$file" "$key")"
   if r_env_has "$file" "$key" && [[ "$old" == "$value" ]]; then return 0; fi
   quoted="$(r_env_quote "$value")" || r_die "cannot write $key to $(basename "$file")"
+  R_CHANGES+=("$(basename "$file"): $key $(r_show "$key" "$old") -> $(r_show "$key" "$value")")
+  [[ "${R_DRY_RUN:-0}" != 1 ]] || return 0
   if r_env_has "$file" "$key"; then
     tmp="$(mktemp "${file}.XXXXXX")"
     K="$key" V="$quoted" awk '
@@ -233,7 +236,6 @@ r_env_set() {
     [[ ! -s "$file" || "$(tail -c1 "$file")" == "" ]] || printf '\n' >>"$file"
     printf '%s=%s\n' "$key" "$quoted" >>"$file"
   fi
-  R_CHANGES+=("$(basename "$file"): $key $(r_show "$key" "$old") -> $(r_show "$key" "$value")")
 }
 
 r_file_mode() { stat -c '%a' "$1" 2>/dev/null || stat -f '%Lp' "$1"; }
@@ -248,7 +250,8 @@ r_env_backup() {
 }
 
 # r_env_add_missing FILE EXAMPLE — append every key EXAMPLE defines and FILE
-# lacks, with EXAMPLE's default and the comment block above it.
+# lacks, with EXAMPLE's default and the comment block above it. In dry-run mode
+# the additions are recorded and printed, never written.
 # shellcheck disable=SC2094 # reads EXAMPLE, appends to FILE (different files)
 r_env_add_missing() {
   local file="$1" example="$2" added=0 key line block=""
@@ -259,10 +262,10 @@ r_env_add_missing() {
     fi
     key="${line%%=*}"
     if [[ "$key" =~ ^[A-Z0-9_]+$ ]] && ! r_env_has "$file" "$key"; then
-      if ((added == 0)); then
+      if ((added == 0)) && [[ "${R_DRY_RUN:-0}" != 1 ]]; then
         printf '\n# ── Added by the Raggie installer on %s (new settings, defaults) ──\n' "$(date +%Y-%m-%d)" >>"$file"
       fi
-      printf '%s%s\n' "$block" "$line" >>"$file"
+      [[ "${R_DRY_RUN:-0}" == 1 ]] || printf '%s%s\n' "$block" "$line" >>"$file"
       R_CHANGES+=("$(basename "$file"): $key added (default $(r_show "$key" "$(r_env_get "$example" "$key")"))")
       added=$((added + 1))
     fi
