@@ -140,3 +140,58 @@ test_version_and_ref_are_validated_before_use() {
     assert_contains "$FAIL_OUT" "--ref"
   done
 }
+
+# ── distro-specific missing-requirement hints (issue #24) ───────────────────
+
+# i_distro_pkg_mgr maps each distro ID to its package manager.
+test_distro_pkg_mgr_matches_os_release() {
+  load_installer
+  local d
+  for d in "debian:apt-get" "ubuntu:apt-get" "rhel:dnf" "rocky:dnf" "alma:dnf" "centos:dnf" "fedora:dnf" "suse:zypper" "opensuse-leap:zypper" "sles:zypper"; do
+    local id want
+    IFS=: read -r id want <<<"$d"
+    printf 'ID=%s\n' "$id" >"$T/os-release"
+    assert_eq "$(RAGGIE_OS_RELEASE="$T/os-release" i_distro_pkg_mgr)" "$want" "pkg mgr for $id"
+  done
+}
+
+# Unknown or missing os-release means no hint.
+test_distro_pkg_mgr_unknown_is_empty() {
+  load_installer
+  printf 'ID=customdistro\n' >"$T/os-release"
+  assert_eq "$(RAGGIE_OS_RELEASE="$T/os-release" i_distro_pkg_mgr; echo rc=$?)" "rc=1" "unknown distro must fail"
+  assert_eq "$(RAGGIE_OS_RELEASE="$T/missing" i_distro_pkg_mgr; echo rc=$?)" "rc=1" "missing os-release must fail"
+}
+
+# The hint name the right install command for the tool on that distro.
+test_install_hint_uses_distro_package_manager() {
+  load_installer
+  printf 'ID=ubuntu\n' >"$T/os-release"
+  assert_eq "$(RAGGIE_OS_RELEASE="$T/os-release" i_install_hint docker-ce)" "sudo apt-get install -y docker-ce"
+  assert_eq "$(RAGGIE_OS_RELEASE="$T/os-release" i_install_hint curl)" "sudo apt-get install -y curl"
+  printf 'ID=fedora\n' >"$T/os-release"
+  assert_eq "$(RAGGIE_OS_RELEASE="$T/os-release" i_install_hint docker-compose-plugin)" "sudo dnf install -y docker-compose-plugin"
+  printf 'ID=opensuse-leap\n' >"$T/os-release"
+  assert_eq "$(RAGGIE_OS_RELEASE="$T/os-release" i_install_hint tar)" "sudo zypper install -y tar"
+}
+
+# i_preflight reports the distro install command when Docker is missing.
+test_preflight_hints_install_command_when_docker_missing() {
+  load_installer
+  mkdir -p "$T/etc" "$T/bin"
+  printf 'ID=ubuntu\n' >"$T/etc/os-release"
+  # Fake PATH: uname + curl + tar + sha256sum exist, docker does not.
+  printf '%s\n' '#!/bin/sh' 'case "$1" in -s) echo Linux ;; -m) echo x86_64 ;; esac' >"$T/bin/uname"
+  printf '%s\n' '#!/bin/sh' 'exit 0' >"$T/bin/curl"
+  printf '%s\n' '#!/bin/sh' 'exit 0' >"$T/bin/tar"
+  printf '%s\n' '#!/bin/sh' 'exit 0' >"$T/bin/sha256sum"
+  chmod +x "$T/bin"/*
+  # A docker shim that only answers to `compose version`; docker itself is
+  # present, so the missing-tool branch is about the compose plugin.
+  printf '%s\n' '#!/bin/sh' 'case "$1 $2" in "compose version") exit 0 ;; *) exit 1 ;; esac' >"$T/bin/docker"
+  chmod +x "$T/bin/docker"
+  # Verify the docker-missing branch directly: hide docker from PATH.
+  ( PATH="$T/bin2" ; mkdir -p "$T/bin2" ; for c in uname curl tar sha256sum; do ln -s "$T/bin/$c" "$T/bin2/$c"; done
+    RAGGIE_OS_RELEASE="$T/etc/os-release" expect_fail env PATH="$T/bin2" i_preflight 0 )
+  assert_contains "$FAIL_OUT" "apt-get install -y docker-ce"
+}
