@@ -9,7 +9,7 @@ dependencies = [
     "uvicorn[standard]>=0.32",
     "pydantic-settings>=2.6",
     "prometheus-client>=0.21",
-    "fastembed>=0.7,<0.8",
+    "fastembed>=0.7,<0.10",
     # Newer huggingface_hub moved blobs to a shared, sharded cache dir; onnxruntime then rejects
     # model.onnx_data as "escaping the model directory". 1.18 (prod) keeps per-model blobs.
     "huggingface_hub<1.19",
