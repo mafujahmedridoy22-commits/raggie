@@ -395,12 +395,18 @@ raggie_embeddings_write() {
 
   # Keys: only in .env.embeddings, never in the shared .env.
   if [[ ! -f "$keys" ]]; then
-    (umask 077 && : >"$keys")
-    if [[ -f "$(dirname "$env")/.env.embeddings.example" ]]; then
-      cat "$(dirname "$env")/.env.embeddings.example" >"$keys"
+    if [[ "${R_DRY_RUN:-0}" == 1 ]]; then
+      r_log "dry-run: would create $(basename "$keys")"
+    else
+      (umask 077 && : >"$keys")
+      if [[ -f "$(dirname "$env")/.env.embeddings.example" ]]; then
+        cat "$(dirname "$env")/.env.embeddings.example" >"$keys"
+      fi
+      chmod 600 "$keys"
     fi
+  elif [[ "${R_DRY_RUN:-0}" != 1 ]]; then
+    chmod 600 "$keys"
   fi
-  chmod 600 "$keys"
   r_env_set "$keys" EMBEDDINGS_UPSTREAM_API_KEY "${E_KEY:-}"
   if raggie_reranker_is_cloud "$RAGGIE_RERANKER_PRESET"; then
     r_env_set "$keys" RERANKER_UPSTREAM_API_KEY "${R_KEY:-}"
