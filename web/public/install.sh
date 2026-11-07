@@ -106,11 +106,33 @@ i_version_ge() { # A B -> A >= B (dotted numeric)
   [[ "$(printf '%s\n%s\n' "$2" "$1" | sort -t. -k1,1n -k2,2n -k3,3n | head -n1)" == "$2" ]]
 }
 
+# i_distro_pkg_mgr — echo the package-manager command for the detected distro
+# (from /etc/os-release, or $RAGGIE_OS_RELEASE for tests); empty if unknown.
+i_distro_pkg_mgr() {
+  local os_release="${RAGGIE_OS_RELEASE:-/etc/os-release}" id
+  [[ -r "$os_release" ]] || return 1
+  id="$(awk -F= '/^ID=/{sub(/^ID=/, ""); gsub(/"/, ""); print; exit}' "$os_release")"
+  case "$id" in
+    debian | ubuntu) printf 'apt-get' ;;
+    rhel | rocky | alma | centos | fedora) printf 'dnf' ;;
+    suse | opensuse* | sles) printf 'zypper' ;;
+    *) return 1 ;;
+  esac
+}
+
+# i_install_hint TOOL — a distro-specific install command for a missing tool,
+# or empty when the distro is unknown.
+i_install_hint() {
+  local mgr tool="$1"
+  mgr="$(i_distro_pkg_mgr)" || return 0
+  printf 'sudo %s install -y %s' "$mgr" "$tool"
+}
+
 # i_preflight CONFIGURE_ONLY [CHECKOUT] — with CONFIGURE_ONLY=1 (--no-start)
 # Docker problems only warn: nothing is pulled or started. CHECKOUT=1 (--source)
 # is a developer checkout, where macOS is expected.
 i_preflight() {
-  local configure_only="${1:-0}" checkout="${2:-0}" os arch v
+  local configure_only="${1:-0}" checkout="${2:-0}" os arch v hint
   os="$(uname -s)"
   case "$os" in
     Linux) ;;
@@ -125,18 +147,23 @@ i_preflight() {
   esac
   export RAGGIE_ARCH
   for v in curl tar; do
-    command -v "$v" >/dev/null 2>&1 || i_die "missing required command: $v"
+    command -v "$v" >/dev/null 2>&1 || {
+      hint="$(i_install_hint "$v")"
+      i_die "missing required command: $v${hint:+ ($hint)}"
+    }
   done
   command -v sha256sum >/dev/null 2>&1 || command -v shasum >/dev/null 2>&1 || i_die "need sha256sum or shasum"
   local fail=i_die
   [[ "$configure_only" != 1 ]] || fail=i_warn
   if ! command -v docker >/dev/null 2>&1; then
-    "$fail" "Docker is not installed (https://docs.docker.com/engine/install/)"
+    hint="$(i_install_hint docker-ce)"
+    "$fail" "Docker is not installed${hint:+ (install: $hint)} (https://docs.docker.com/engine/install/)"
     return 0
   fi
   v="$(docker compose version --short 2>/dev/null | sed 's/^v//')" || true
   if [[ -z "$v" ]]; then
-    "$fail" "the Docker Compose plugin is required (docker compose)"
+    hint="$(i_install_hint docker-compose-plugin)"
+    "$fail" "the Docker Compose plugin is required (docker compose)${hint:+ (install: $hint)}"
   elif ! i_version_ge "$v" "$RAGGIE_COMPOSE_MIN"; then
     "$fail" "Docker Compose >= $RAGGIE_COMPOSE_MIN required (found $v)"
   fi
