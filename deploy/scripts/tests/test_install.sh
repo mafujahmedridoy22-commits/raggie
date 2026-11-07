@@ -140,3 +140,19 @@ test_version_and_ref_are_validated_before_use() {
     assert_contains "$FAIL_OUT" "--ref"
   done
 }
+
+# `--dry-run` runs the checks/prompts and prints the plan, but writes nothing
+# and starts nothing.
+test_dry_run_prints_plan_without_writing() {
+  local repo="$T/repo" out
+  mkdir -p "$repo/deploy/compose"
+  cp "$T/.env.example" "$T/.env.embeddings.example" "$repo/"
+  cp -R "$SCRIPTS_DIR" "$repo/deploy/scripts"
+  out="$(RAGGIE_SKIP_PREFLIGHT=1 bash "$REPO_ROOT/web/public/install.sh" \
+    --source "$repo" --yes --dry-run --skip-checks \
+    --embeddings local --llm mock --public-url http://h.example 2>&1)"
+  assert_contains "$out" "dry-run: no changes were written"
+  [[ ! -e "$repo/.env" ]] || fail_test "dry-run wrote .env"
+  [[ ! -e "$repo/.env.embeddings" ]] || fail_test "dry-run wrote .env.embeddings"
+  [[ ! -e "$repo/.raggie" ]] || fail_test "dry-run wrote .raggie state"
+}
