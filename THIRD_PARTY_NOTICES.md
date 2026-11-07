@@ -14,7 +14,8 @@ Copyleft, non-commercial or unidentified licenses — check how each one is used
 | Python — services/workers | certifi | 2026.10.23 | MPL-2.0 | weak copyleft |
 | Python — services/embeddings | certifi | 2026.10.23 | MPL-2.0 | weak copyleft |
 | Python — services/embeddings | tqdm | 4.70.1 | MPL-2.0 AND MIT | weak copyleft |
-| npm — web (production dependencies) | @img/sharp-libvips-darwin-arm64 | 1.3.4 | LGPL-3.0-or-later | weak copyleft |
+| npm — web (production dependencies) | @img/sharp-libvips-linux-x64 | 1.3.4 | LGPL-3.0-or-later | weak copyleft |
+| npm — web (production dependencies) | @img/sharp-libvips-linuxmusl-x64 | 1.3.4 | LGPL-3.0-or-later | weak copyleft |
 
 ## Go — services/edge
 
@@ -228,21 +229,26 @@ Platform-specific optional packages reflect the machine that generated this file
 | @formatjs/icu-skeleton-parser | 2.1.9 | MIT | https://github.com/formatjs/formatjs#readme |
 | @formatjs/intl-localematcher | 0.8.9 | MIT | https://github.com/formatjs/formatjs#readme |
 | @img/colour | 1.1.0 | MIT | https://github.com/lovell/colour#readme |
-| @img/sharp-darwin-arm64 | 0.35.5 | Apache-2.0 | https://sharp.pixelplumbing.com |
-| @img/sharp-libvips-darwin-arm64 | 1.3.4 | LGPL-3.0-or-later | https://sharp.pixelplumbing.com |
+| @img/sharp-libvips-linux-x64 | 1.3.4 | LGPL-3.0-or-later | https://sharp.pixelplumbing.com |
+| @img/sharp-libvips-linuxmusl-x64 | 1.3.4 | LGPL-3.0-or-later | https://sharp.pixelplumbing.com |
+| @img/sharp-linux-x64 | 0.35.5 | Apache-2.0 | https://sharp.pixelplumbing.com |
+| @img/sharp-linuxmusl-x64 | 0.35.5 | Apache-2.0 | https://sharp.pixelplumbing.com |
 | @jridgewell/gen-mapping | 0.3.13 | MIT | https://github.com/jridgewell/sourcemaps/tree/main/packages/gen-mapping |
 | @jridgewell/remapping | 2.3.5 | MIT | https://github.com/jridgewell/sourcemaps/tree/main/packages/remapping |
 | @jridgewell/resolve-uri | 3.1.2 | MIT | https://github.com/jridgewell/resolve-uri#readme |
 | @jridgewell/sourcemap-codec | 1.5.5 | MIT | https://github.com/jridgewell/sourcemaps/tree/main/packages/sourcemap-codec |
 | @jridgewell/trace-mapping | 0.3.31 | MIT | https://github.com/jridgewell/sourcemaps/tree/main/packages/trace-mapping |
 | @next/env | 16.4.5 | MIT | https://github.com/vercel/next.js#readme |
-| @next/swc-darwin-arm64 | 16.4.5 | MIT | https://github.com/vercel/next.js#readme |
+| @next/swc-linux-x64-gnu | 16.4.5 | MIT | https://github.com/vercel/next.js#readme |
+| @next/swc-linux-x64-musl | 16.4.5 | MIT | https://github.com/vercel/next.js#readme |
 | @parcel/watcher | 2.5.6 | MIT | https://github.com/parcel-bundler/watcher#readme |
-| @parcel/watcher-darwin-arm64 | 2.5.6 | MIT | https://github.com/parcel-bundler/watcher#readme |
+| @parcel/watcher-linux-x64-glibc | 2.5.6 | MIT | https://github.com/parcel-bundler/watcher#readme |
+| @parcel/watcher-linux-x64-musl | 2.5.6 | MIT | https://github.com/parcel-bundler/watcher#readme |
 | @playwright/test | 1.60.0 | Apache-2.0 | https://playwright.dev |
 | @schummar/icu-type-parser | 1.21.5 | MIT | https://github.com/schummar/schummar-translate#readme |
 | @swc/core | 1.15.40 | Apache-2.0 | https://swc.rs |
-| @swc/core-darwin-arm64 | 1.15.40 | Apache-2.0 AND MIT | https://swc.rs |
+| @swc/core-linux-x64-gnu | 1.15.40 | Apache-2.0 AND MIT | https://swc.rs |
+| @swc/core-linux-x64-musl | 1.15.40 | Apache-2.0 AND MIT | https://swc.rs |
 | @swc/counter | 0.1.3 | Apache-2.0 | https://swc.rs |
 | @swc/helpers | 0.5.23 | Apache-2.0 | https://swc.rs |
 | @swc/types | 0.1.26 | Apache-2.0 | https://swc.rs |
@@ -281,7 +287,6 @@ Platform-specific optional packages reflect the machine that generated this file
 | escape-string-regexp | 5.0.0 | MIT | https://github.com/sindresorhus/escape-string-regexp#readme |
 | estree-util-is-identifier-name | 3.0.0 | MIT | https://github.com/syntax-tree/estree-util-is-identifier-name#readme |
 | extend | 3.0.2 | MIT | https://github.com/justmoon/node-extend#readme |
-| fsevents | 2.3.2 | MIT | https://github.com/fsevents/fsevents |
 | gensync | 1.0.0-beta.2 | MIT | https://github.com/loganfsmyth/gensync |
 | hast-util-to-jsx-runtime | 2.3.6 | MIT | https://github.com/syntax-tree/hast-util-to-jsx-runtime#readme |
 | hast-util-whitespace | 3.0.0 | MIT | https://github.com/syntax-tree/hast-util-whitespace#readme |
