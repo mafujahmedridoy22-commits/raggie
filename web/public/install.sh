@@ -74,6 +74,7 @@ Behaviour
   --skip-probe               Do not live-test cloud/LLM endpoints
   --skip-checks              Continue below the RAM/disk minimums or with busy ports
   --no-start                 Configure only; do not pull, build or start
+  --dry-run                  Print the planned changes and exit without writing or starting
   -h, --help
 
 Every flag also reads an env var: --embeddings-api-key -> RAGGIE_EMBEDDINGS_API_KEY.
@@ -358,9 +359,12 @@ main() {
   version="${version#v}"
   i_check_version_ref "$version" "$ref"
 
-  local configure_only=0 a
+  local configure_only=0 dry_run=0 a
   for a in "$@"; do [[ "$a" != --no-start ]] || configure_only=1; done
+  for a in "$@"; do [[ "$a" != --dry-run ]] || dry_run=1; done
   [[ "${RAGGIE_NO_START:-0}" != 1 ]] || configure_only=1
+  [[ "${RAGGIE_DRY_RUN:-0}" != 1 ]] || dry_run=1
+  export R_DRY_RUN=$dry_run
   [[ "${RAGGIE_SKIP_PREFLIGHT:-0}" == 1 ]] || i_preflight "$configure_only" "$([[ -n "$source" ]] && echo 1 || echo 0)"
 
   if [[ -n "$source" ]]; then
@@ -387,9 +391,11 @@ main() {
   r_parse_flags "$@"
 
   if ((in_repo == 0)); then
-    mkdir -p "$dir"
-    # Overlay the release; user files (.env, .env.embeddings, .raggie/) are not in the bundle.
-    cp -R "$stage"/. "$dir"/
+    if [[ "$dry_run" != 1 ]]; then
+      mkdir -p "$dir"
+      # Overlay the release; user files (.env, .env.embeddings, .raggie/) are not in the bundle.
+      cp -R "$stage"/. "$dir"/
+    fi
   fi
   dir="$(cd "$dir" && pwd)"
   env="$dir/.env"
@@ -405,6 +411,12 @@ main() {
   fi
   raggie_env_secrets "$env"
   raggie_env_site "$env"
+
+  if [[ "$dry_run" == 1 ]]; then
+    printf 'dry-run: no changes were written, nothing was started.\n' >&2
+    r_print_changes
+    exit 0
+  fi
 
   # Published images for a pinned release; local builds for --ref, a checkout, or --build.
   with_images=1
