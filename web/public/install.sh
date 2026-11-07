@@ -365,6 +365,12 @@ main() {
   [[ "${RAGGIE_NO_START:-0}" != 1 ]] || configure_only=1
   [[ "${RAGGIE_SKIP_PREFLIGHT:-0}" == 1 ]] || i_preflight "$configure_only" "$([[ -n "$source" ]] && echo 1 || echo 0)"
 
+  # --dry-run shows the plan from a checkout; it must not download or touch the
+  # install target, so it requires --source.
+  if [[ "${RAGGIE_DRY_RUN:-0}" == 1 && -z "$source" ]]; then
+    i_die "--dry-run requires --source DIR (a local checkout) so the plan can be shown without downloading or writing"
+  fi
+
   if [[ -n "$source" ]]; then
     in_repo=1
     stage="$(cd "$source" && pwd)"
@@ -388,7 +394,7 @@ main() {
   . "$stage/deploy/scripts/configure-llm.sh"
   r_parse_flags "$@"
 
-  if ((in_repo == 0)); then
+  if ((in_repo == 0)) && [[ "${RAGGIE_DRY_RUN:-0}" != 1 ]]; then
     mkdir -p "$dir"
     # Overlay the release; user files (.env, .env.embeddings, .raggie/) are not in the bundle.
     cp -R "$stage"/. "$dir"/
@@ -413,11 +419,17 @@ main() {
   if [[ "${RAGGIE_BUILD:-0}" == 1 || -n "$ref" ]] || { ((in_repo)) && [[ "${RAGGIE_PULL:-0}" != 1 ]]; }; then
     with_images=0
   fi
-  mkdir -p "$dir/.raggie"
-  i_write_images_override "$dir/.raggie/docker-compose.images.yml" "$version" "${RAGGIE_EMBEDDINGS_VARIANT:-local}"
-  i_write_state "$dir" "$with_images"
+  if [[ "${RAGGIE_DRY_RUN:-0}" != 1 ]]; then
+    mkdir -p "$dir/.raggie"
+    i_write_images_override "$dir/.raggie/docker-compose.images.yml" "$version" "${RAGGIE_EMBEDDINGS_VARIANT:-local}"
+    i_write_state "$dir" "$with_images"
+  fi
   r_print_changes
 
+  if [[ "${RAGGIE_DRY_RUN:-0}" == 1 ]]; then
+    r_log "dry-run complete: nothing written or started (plan above)"
+    exit 0
+  fi
   if [[ "${RAGGIE_NO_START:-0}" == 1 ]]; then
     r_log "configured (--no-start). Start with: $dir/.raggie/compose up -d"
   else
