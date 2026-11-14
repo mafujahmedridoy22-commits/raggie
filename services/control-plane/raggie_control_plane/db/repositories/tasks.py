@@ -9,7 +9,7 @@ from uuid import UUID
 
 import asyncpg
 
-from raggie_control_plane.db.repositories._common import compose_sql
+from raggie_control_plane.db.repositories._common import compose_sql, patch_set
 from raggie_control_plane.models import Notification, ScheduledTask
 from raggie_control_plane.scheduling import effective_timezone
 
@@ -94,12 +94,7 @@ class ScheduledTaskRepo:
         supplied columns (a key present is written verbatim, including None to
         clear a nullable field). Returns None if the task is missing or not owned
         by user_id (callers map that to 404)."""
-        sets: list[str] = []
-        vals: list[object] = [task_id, user_id]
-        for field in self._UPDATABLE:
-            if field in fields:
-                vals.append(fields[field])
-                sets.append(f"{field} = ${len(vals)}")
+        sets, vals = patch_set(self._UPDATABLE, fields, [task_id, user_id])
         if not sets:
             return await self._get_owned(task_id, user_id)
         row = await self.conn.fetchrow(

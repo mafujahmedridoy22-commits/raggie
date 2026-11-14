@@ -10,7 +10,7 @@ from uuid import UUID
 import asyncpg
 
 from raggie_control_plane.config import settings
-from raggie_control_plane.db.repositories._common import compose_sql
+from raggie_control_plane.db.repositories._common import compose_sql, patch_set
 from raggie_control_plane.models import Invite, User
 
 
@@ -216,12 +216,7 @@ class UserRepo:
     async def update_profile(self, user_id: UUID, **fields: object) -> User | None:
         """Patch only the supplied columns (a key present is written verbatim,
         including None to clear it; absent keys are untouched)."""
-        sets: list[str] = []
-        vals: list[object] = [user_id]
-        for field in self._UPDATABLE_FIELDS:
-            if field in fields:
-                vals.append(fields[field])
-                sets.append(f"{field} = ${len(vals)}")
+        sets, vals = patch_set(self._UPDATABLE_FIELDS, fields, [user_id])
         if not sets:
             return await self.get(user_id)
         async with self.conn.transaction():

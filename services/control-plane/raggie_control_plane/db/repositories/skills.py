@@ -8,7 +8,7 @@ from uuid import UUID
 
 import asyncpg
 
-from raggie_control_plane.db.repositories._common import compose_sql
+from raggie_control_plane.db.repositories._common import compose_sql, patch_set
 from raggie_control_plane.models import Skill, SkillVersion
 
 
@@ -150,12 +150,7 @@ class SkillsRepo:
     ) -> Skill | None:
         """Patch only the supplied columns (a key present is written verbatim,
         including None to clear a nullable field; absent keys are untouched)."""
-        sets: list[str] = []
-        vals: list[object] = [skill_id]
-        for field in self._UPDATABLE:
-            if field in fields:
-                vals.append(fields[field])
-                sets.append(f"{field} = ${len(vals)}")
+        sets, vals = patch_set(self._UPDATABLE, fields, [skill_id])
         if not sets:
             return await self.get(skill_id)
         if actor_id is not None:
@@ -175,12 +170,7 @@ class SkillsRepo:
     ) -> Skill | None:
         """Ownership-checked patch: only the owner may edit. Returns None if the
         skill is missing or not owned by user_id (so callers map that to 404)."""
-        sets: list[str] = []
-        vals: list[object] = [skill_id, user_id]
-        for field in self._UPDATABLE:
-            if field in fields:
-                vals.append(fields[field])
-                sets.append(f"{field} = ${len(vals)}")
+        sets, vals = patch_set(self._UPDATABLE, fields, [skill_id, user_id])
         if not sets:
             row = await self.conn.fetchrow(
                 "SELECT * FROM skills WHERE id = $1 AND owner_user_id = $2",

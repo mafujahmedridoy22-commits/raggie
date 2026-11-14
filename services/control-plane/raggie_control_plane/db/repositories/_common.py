@@ -5,7 +5,7 @@
 from __future__ import annotations
 
 import re
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 
 # A fragment that may be interpolated into SQL text: a lowercase identifier,
 # optionally assigned a bind placeholder (`col = $3`, `col = $3::jsonb`), or a
@@ -26,3 +26,25 @@ def compose_sql(template: str, **fragments: Iterable[str]) -> str:
             raise ValueError(f"unsafe SQL fragment for {slot!r}")
         rendered[slot] = ", ".join(parts)
     return template.format_map(rendered)
+
+
+def patch_set(
+    allowed: Iterable[str], fields: Mapping[str, object], lead: list[object]
+) -> tuple[list[str], list[object]]:
+    """Build the ``col = $n`` SET fragments for a partial update.
+
+    Walks ``allowed`` in order and, for each column present in ``fields``, appends
+    the value and a ``col = $n`` placeholder numbered after ``lead``. A key
+    present is written verbatim (including ``None`` to clear it); absent keys are
+    untouched. Returns ``(sets, vals)``: pass ``sets=sets`` to :func:`compose_sql`
+    and bind ``*vals``. ``sets`` is empty when no allowed column was supplied, so
+    a caller can fall back to a plain read. A caller adding a trailing assignment
+    can append to ``sets`` and ``vals`` before binding.
+    """
+    vals = list(lead)
+    sets: list[str] = []
+    for col in allowed:
+        if col in fields:
+            vals.append(fields[col])
+            sets.append(f"{col} = ${len(vals)}")
+    return sets, vals

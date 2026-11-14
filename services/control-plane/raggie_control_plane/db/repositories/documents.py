@@ -8,7 +8,7 @@ from uuid import UUID
 
 import asyncpg
 
-from raggie_control_plane.db.repositories._common import compose_sql
+from raggie_control_plane.db.repositories._common import compose_sql, patch_set
 from raggie_control_plane.models import Document, DocumentFolder
 
 
@@ -282,12 +282,7 @@ class DocumentFolderRepo:
     async def update(self, folder_id: UUID, **fields: object) -> DocumentFolder | None:
         """Dynamic-SET patcher: rename and/or re-parent. parent_folder_id=None moves
         the folder to the workspace root (passing it explicitly nulls the column)."""
-        sets: list[str] = []
-        vals: list[object] = [folder_id]
-        for field in self._UPDATABLE:
-            if field in fields:
-                vals.append(fields[field])
-                sets.append(f"{field} = ${len(vals)}")
+        sets, vals = patch_set(self._UPDATABLE, fields, [folder_id])
         if not sets:
             return await self.get(folder_id)
         row = await self.conn.fetchrow(

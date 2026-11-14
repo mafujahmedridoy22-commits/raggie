@@ -8,7 +8,7 @@ from uuid import UUID
 
 import asyncpg
 
-from raggie_control_plane.db.repositories._common import compose_sql
+from raggie_control_plane.db.repositories._common import compose_sql, patch_set
 from raggie_control_plane.models import (
     Department,
     Location,
@@ -81,12 +81,7 @@ class DepartmentRepo:
     _UPDATABLE = ("name", "owner_user_id", "parent_department_id")
 
     async def update(self, dept_id: UUID, **fields: object) -> Department | None:
-        sets: list[str] = []
-        vals: list[object] = [dept_id]
-        for field in self._UPDATABLE:
-            if field in fields:
-                vals.append(fields[field])
-                sets.append(f"{field} = ${len(vals)}")
+        sets, vals = patch_set(self._UPDATABLE, fields, [dept_id])
         if not sets:
             return await self.get(dept_id)
         row = await self.conn.fetchrow(
@@ -137,12 +132,7 @@ class LocationRepo:
     _UPDATABLE = ("name", "city", "country")
 
     async def update(self, loc_id: UUID, **fields: object) -> Location | None:
-        sets: list[str] = []
-        vals: list[object] = [loc_id]
-        for field in self._UPDATABLE:
-            if field in fields:
-                vals.append(fields[field])
-                sets.append(f"{field} = ${len(vals)}")
+        sets, vals = patch_set(self._UPDATABLE, fields, [loc_id])
         if not sets:
             return await self.get(loc_id)
         row = await self.conn.fetchrow(
