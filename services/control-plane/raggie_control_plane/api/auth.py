@@ -15,6 +15,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel
 
 from raggie_control_plane.api.deps import get_access_claims, get_conn, get_current_user
+from raggie_control_plane.api.errors import not_found
 from raggie_control_plane.api.ratelimit import auth_rate_limit, login_lockout
 from raggie_control_plane.auth.identity import LocalIdentityProvider
 from raggie_control_plane.auth.service import AuthService
@@ -363,7 +364,7 @@ async def update_my_profile(
 ) -> ProfileResponse:
     updated = await UserRepo(conn).update_profile(user.id, **body.model_dump(exclude_unset=True))
     if updated is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "user not found")
+        raise not_found("user")
     return await _profile_response(conn, updated)
 
 
@@ -397,7 +398,7 @@ async def set_my_locale(
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "unsupported locale")
     updated = await UserRepo(conn).set_locale(user.id, body.locale)
     if updated is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "user not found")
+        raise not_found("user")
     return updated
 
 
@@ -435,7 +436,7 @@ async def set_my_preferences(
         return user
     updated = await UserRepo(conn).update_profile(user.id, **fields)
     if updated is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "user not found")
+        raise not_found("user")
     return updated
 
 
@@ -536,7 +537,7 @@ async def revoke_invite(
         raise HTTPException(status.HTTP_403_FORBIDDEN, "insufficient role")
     invite = await InviteRepo(conn).get(invite_id)
     if invite is None or invite.org_id != user.org_id:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "invite not found")
+        raise not_found("invite")
     if not await InviteRepo(conn).revoke(invite_id):
         raise HTTPException(status.HTTP_409_CONFLICT, "invite is no longer pending")
 
@@ -551,7 +552,7 @@ async def resend_invite(
         raise HTTPException(status.HTTP_403_FORBIDDEN, "insufficient role")
     old = await InviteRepo(conn).get(invite_id)
     if old is None or old.org_id != user.org_id:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "invite not found")
+        raise not_found("invite")
     # Re-issuing is granting anew: a WORKSPACE_ADMIN must not mint a fresh token
     # for a SUPER_ADMIN invite someone else created.
     await _check_invite_grant(

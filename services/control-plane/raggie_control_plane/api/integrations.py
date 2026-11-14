@@ -19,6 +19,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel
 
 from raggie_control_plane.api.deps import ensure_platform_admin, get_conn, get_current_user
+from raggie_control_plane.api.errors import not_found
 from raggie_control_plane.authz import is_platform_admin
 from raggie_control_plane.db.repositories import (
     IntegrationRepo,
@@ -130,7 +131,7 @@ async def _require_visible(
     repo = {"team": TeamRepo, "workspace": WorkspaceRepo, "user": UserRepo}[kind](conn)
     entity = await repo.get(entity_id)
     if entity is None or (entity.org_id != user.org_id and not is_platform_admin(user)):
-        raise HTTPException(status.HTTP_404_NOT_FOUND, f"{kind} not found")
+        raise not_found(kind)
 
 
 async def _authorize(
@@ -188,7 +189,7 @@ async def _scope_org(conn: asyncpg.Connection, scope_type: str, scope_id: UUID) 
         owner = await UserRepo(conn).get(scope_id)
         org_id = owner.org_id if owner else None
     if org_id is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "scope not found")
+        raise not_found("scope")
     return org_id
 
 
@@ -350,7 +351,7 @@ async def update_integration(
     repo = IntegrationRepo(conn)
     existing = await repo.get(integration_id)
     if existing is None or existing.org_id != user.org_id:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "integration not found")
+        raise not_found("integration")
     await _authorize(
         conn, user, existing.scope_type, existing.scope_id, existing.target_workspace_id
     )
@@ -378,7 +379,7 @@ async def disconnect_integration(
     repo = IntegrationRepo(conn)
     existing = await repo.get(integration_id)
     if existing is None or existing.org_id != user.org_id:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "integration not found")
+        raise not_found("integration")
     await _authorize(
         conn, user, existing.scope_type, existing.scope_id, existing.target_workspace_id
     )

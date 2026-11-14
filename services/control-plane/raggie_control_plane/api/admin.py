@@ -24,6 +24,7 @@ from raggie_control_plane.api.deps import (
     require_system,
     require_workspace,
 )
+from raggie_control_plane.api.errors import not_found
 from raggie_control_plane.authz import Action, can_grant_role, is_platform_admin
 from raggie_control_plane.db.repositories import (
     AuditRepo,
@@ -85,7 +86,7 @@ async def list_orgs(conn: asyncpg.Connection = Depends(get_conn)) -> list[Organi
 async def get_org(org_id: UUID, conn: asyncpg.Connection = Depends(get_conn)) -> Organization:
     org = await OrganizationRepo(conn).get(org_id)
     if org is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "organization not found")
+        raise not_found("organization")
     return org
 
 
@@ -102,14 +103,14 @@ async def require_team_in_org(conn: asyncpg.Connection, org_id: UUID, team_id: U
     A foreign team is indistinguishable from a missing one (404)."""
     team = await TeamRepo(conn).get(team_id)
     if team is None or team.org_id != org_id:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "team not found")
+        raise not_found("team")
     return team
 
 
 async def _require_user_in_org(conn: asyncpg.Connection, org_id: UUID, user_id: UUID) -> User:
     user = await UserRepo(conn).get(user_id)
     if user is None or user.org_id != org_id:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "user not found")
+        raise not_found("user")
     return user
 
 
@@ -399,7 +400,7 @@ async def update_org_user(
     await _apply_directory_write_through(conn, org_id, fields)
     updated = await UserRepo(conn).update_profile(user_id, **fields)
     if updated is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "user not found")
+        raise not_found("user")
     await AuditRepo(conn).record(
         "user.updated", org_id=org_id, actor_user_id=actor.id, target=str(user_id)
     )
@@ -423,7 +424,7 @@ async def set_org_user_active(
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "cannot deactivate yourself")
     updated = await UserRepo(conn).set_active(user_id, body.active)
     if updated is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "user not found")
+        raise not_found("user")
     await AuditRepo(conn).record(
         "user.activated" if body.active else "user.deactivated",
         org_id=org_id,
@@ -482,7 +483,7 @@ async def set_platform_admin(
         admins = await repo.lock_active_platform_admins()
         target = await repo.get(user_id)
         if target is None:
-            raise HTTPException(status.HTTP_404_NOT_FOUND, "user not found")
+            raise not_found("user")
         if body.is_platform_admin:
             if not target.is_active or target.role != Role.SUPER_ADMIN:
                 raise HTTPException(
@@ -562,7 +563,7 @@ async def get_workspace(
 ) -> Workspace:
     ws = await WorkspaceRepo(conn).get(workspace_id)
     if ws is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "workspace not found")
+        raise not_found("workspace")
     return ws
 
 
@@ -611,7 +612,7 @@ async def add_workspace_member(
     _check_member_role(actor, body.role)
     ws = await WorkspaceRepo(conn).get(workspace_id)
     if ws is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "workspace not found")
+        raise not_found("workspace")
     await _require_user_in_org(conn, ws.org_id, body.user_id)
     await MembershipRepo(conn).add_workspace_member(workspace_id, body.user_id, str(body.role))
 
@@ -625,7 +626,7 @@ async def remove_workspace_member(
     workspace_id: UUID, user_id: UUID, conn: asyncpg.Connection = Depends(get_conn)
 ) -> None:
     if not await MembershipRepo(conn).remove_workspace_member(workspace_id, user_id):
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "member not found")
+        raise not_found("member")
 
 
 # Team members
@@ -669,4 +670,4 @@ async def remove_team_member(
 ) -> None:
     await require_team_in_org(conn, org_id, team_id)
     if not await MembershipRepo(conn).remove_team_member(team_id, user_id):
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "member not found")
+        raise not_found("member")

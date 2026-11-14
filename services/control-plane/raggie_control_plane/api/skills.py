@@ -20,6 +20,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
 
 from raggie_control_plane.api.deps import get_conn, get_current_user
+from raggie_control_plane.api.errors import not_found
 from raggie_control_plane.authz import Action, Authorizer
 from raggie_control_plane.db.repositories import SettingsRepo, SkillsRepo
 from raggie_control_plane.models import Skill, SkillVersion, User
@@ -217,7 +218,7 @@ async def update_personal_skill(
     conn: asyncpg.Connection = Depends(get_conn),
 ) -> Skill:
     if user.org_id is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "skill not found")
+        raise not_found("skill")
     fields = body.model_dump(exclude_unset=True)
     _validate_required_patch(fields, "name")
     if "slug" in fields and fields["slug"] is not None:
@@ -237,7 +238,7 @@ async def update_personal_skill(
         raise HTTPException(status.HTTP_409_CONFLICT, "slug already in use") from exc
     # Missing or not owned by the caller → invisible (404).
     if updated is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "skill not found")
+        raise not_found("skill")
     return updated
 
 
@@ -251,7 +252,7 @@ async def delete_personal_skill(
     conn: asyncpg.Connection = Depends(get_conn),
 ) -> None:
     if user.org_id is None or not await SkillsRepo(conn).delete_personal(skill_id, user.id):
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "skill not found")
+        raise not_found("skill")
 
 
 @router.get(
@@ -266,7 +267,7 @@ async def list_personal_skill_versions(
     repo = SkillsRepo(conn)
     skill = await repo.get(skill_id)
     if skill is None or skill.owner_user_id != user.id:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "skill not found")
+        raise not_found("skill")
     return await repo.list_versions(skill_id)
 
 
@@ -283,10 +284,10 @@ async def restore_personal_skill_version(
     repo = SkillsRepo(conn)
     skill = await repo.get(skill_id)
     if skill is None or skill.owner_user_id != user.id:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "skill not found")
+        raise not_found("skill")
     restored = await repo.restore_version(skill_id, version, actor_id=user.id)
     if restored is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "skill version not found")
+        raise not_found("skill version")
     return restored
 
 
@@ -345,7 +346,7 @@ async def update_skill(
     skill = await repo.get(skill_id)
     # A skill from another org is invisible (404), not merely forbidden.
     if skill is None or skill.org_id != user.org_id:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "skill not found")
+        raise not_found("skill")
     fields = body.model_dump(exclude_unset=True)
     _validate_required_patch(fields, "name")
     if "slug" in fields and fields["slug"] is not None:
@@ -364,7 +365,7 @@ async def update_skill(
     except asyncpg.UniqueViolationError as exc:
         raise HTTPException(status.HTTP_409_CONFLICT, "slug already in use") from exc
     if updated is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "skill not found")
+        raise not_found("skill")
     return updated
 
 
@@ -380,7 +381,7 @@ async def list_skill_versions(
     repo = SkillsRepo(conn)
     skill = await repo.get(skill_id)
     if skill is None or skill.org_id != user.org_id:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "skill not found")
+        raise not_found("skill")
     return await repo.list_versions(skill_id)
 
 
@@ -397,10 +398,10 @@ async def restore_skill_version(
     repo = SkillsRepo(conn)
     skill = await repo.get(skill_id)
     if skill is None or skill.org_id != user.org_id:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "skill not found")
+        raise not_found("skill")
     restored = await repo.restore_version(skill_id, version, actor_id=user.id)
     if restored is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "skill version not found")
+        raise not_found("skill version")
     return restored
 
 
@@ -416,5 +417,5 @@ async def delete_skill(
     repo = SkillsRepo(conn)
     skill = await repo.get(skill_id)
     if skill is None or skill.org_id != user.org_id:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "skill not found")
+        raise not_found("skill")
     await repo.delete(skill_id, actor_id=user.id)

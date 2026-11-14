@@ -15,6 +15,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 
 from raggie_control_plane.api.deps import get_conn, get_current_user, require_workspace
+from raggie_control_plane.api.errors import not_found
 from raggie_control_plane.authz import Action, visible_workspaces
 from raggie_control_plane.config import settings
 from raggie_control_plane.db.repositories import WorkspaceRepo
@@ -155,7 +156,7 @@ async def get_widget_config(
 ) -> WidgetConfigOut:
     ws = await WorkspaceRepo(conn).get(workspace_id)
     if ws is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "workspace not found")
+        raise not_found("workspace")
     return _to_out(ws)
 
 
@@ -180,7 +181,7 @@ async def put_widget_config(
         cors_allowed_origins=origins,
     )
     if ws is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "workspace not found")
+        raise not_found("workspace")
     return _to_out(ws)
 
 
@@ -224,7 +225,7 @@ async def get_workspace_settings(
 ) -> WorkspaceSettingsOut:
     ws = await WorkspaceRepo(conn).get(workspace_id)
     if ws is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "workspace not found")
+        raise not_found("workspace")
     return _settings_out(ws)
 
 
@@ -245,5 +246,5 @@ async def put_workspace_settings(
         memory_enabled=body.memory_enabled,
     )
     if ws is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "workspace not found")
+        raise not_found("workspace")
     return _settings_out(ws)

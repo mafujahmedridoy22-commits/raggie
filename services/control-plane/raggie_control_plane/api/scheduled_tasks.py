@@ -22,6 +22,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
 
 from raggie_control_plane.api.deps import get_conn, get_current_user
+from raggie_control_plane.api.errors import not_found
 from raggie_control_plane.authz import Action, Authorizer
 from raggie_control_plane.db.repositories import (
     NotificationRepo,
@@ -114,7 +115,7 @@ async def _require_org_workspace(conn: asyncpg.Connection, user: User, workspace
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "no organization in scope")
     ws = await WorkspaceRepo(conn).get(workspace_id)
     if ws is None or ws.org_id != user.org_id:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "workspace not found")
+        raise not_found("workspace")
     if not await Authorizer(conn).resolve(
         user, Action.USE_WORKSPACE_CHAT, workspace_id=workspace_id
     ):
@@ -184,7 +185,7 @@ async def update_scheduled_task(
     existing = await repo.get(task_id)
     # A task that is missing or owned by someone else is invisible (404).
     if existing is None or existing.user_id != user.id:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "task not found")
+        raise not_found("task")
 
     fields = body.model_dump(exclude_unset=True)
     if "name" in fields and fields["name"] is not None:
@@ -211,7 +212,7 @@ async def update_scheduled_task(
 
     updated = await repo.update(task_id, user.id, **fields)
     if updated is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "task not found")
+        raise not_found("task")
     return updated
 
 
@@ -225,7 +226,7 @@ async def delete_scheduled_task(
     conn: asyncpg.Connection = Depends(get_conn),
 ) -> None:
     if not await ScheduledTaskRepo(conn).delete(task_id, user.id):
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "task not found")
+        raise not_found("task")
 
 
 # ── Notifications inbox: current-user only ───────────────────────
@@ -248,7 +249,7 @@ async def mark_notification_read(
     conn: asyncpg.Connection = Depends(get_conn),
 ) -> None:
     if not await NotificationRepo(conn).mark_read(notification_id, user.id):
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "notification not found")
+        raise not_found("notification")
 
 
 @router.post("/notifications/read-all", status_code=status.HTTP_204_NO_CONTENT)
@@ -266,4 +267,4 @@ async def delete_notification(
     conn: asyncpg.Connection = Depends(get_conn),
 ) -> None:
     if not await NotificationRepo(conn).delete(notification_id, user.id):
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "notification not found")
+        raise not_found("notification")

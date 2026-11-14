@@ -18,6 +18,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 
 from raggie_control_plane.api.deps import get_conn, require_org
+from raggie_control_plane.api.errors import not_found
 from raggie_control_plane.authz import Action
 from raggie_control_plane.db.repositories import (
     DepartmentRepo,
@@ -54,7 +55,7 @@ async def _check_owner_in_org(conn: asyncpg.Connection, owner_id: UUID, org_id: 
     # one is indistinguishable from a missing one (404).
     owner = await UserRepo(conn).get(owner_id)
     if owner is None or owner.org_id != org_id:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "owner not found")
+        raise not_found("owner")
 
 
 async def _check_parent_in_org(
@@ -65,7 +66,7 @@ async def _check_parent_in_org(
     repo = DepartmentRepo(conn)
     parent = await repo.get(parent_id)
     if parent is None or parent.org_id != org_id:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "parent department not found")
+        raise not_found("parent department")
     if dept_id is None:
         return
     seen: set[UUID] = set()
@@ -129,7 +130,7 @@ async def update_department(
     repo = DepartmentRepo(conn)
     dept = await repo.get(dept_id)
     if dept is None or dept.org_id != org_id:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "department not found")
+        raise not_found("department")
     fields = body.model_dump(exclude_unset=True)
     if "name" in fields and fields["name"] is not None:
         fields["name"] = _clean_name(fields["name"])
@@ -144,7 +145,7 @@ async def update_department(
     except asyncpg.UniqueViolationError as exc:
         raise HTTPException(status.HTTP_409_CONFLICT, "department already exists") from exc
     if updated is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "department not found")
+        raise not_found("department")
     return updated
 
 
@@ -159,7 +160,7 @@ async def delete_department(
     repo = DepartmentRepo(conn)
     dept = await repo.get(dept_id)
     if dept is None or dept.org_id != org_id:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "department not found")
+        raise not_found("department")
     # FKs are ON DELETE SET NULL, so members simply become unassigned.
     await repo.delete(dept_id)
 
@@ -218,7 +219,7 @@ async def update_location(
     repo = LocationRepo(conn)
     loc = await repo.get(loc_id)
     if loc is None or loc.org_id != org_id:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "location not found")
+        raise not_found("location")
     fields = body.model_dump(exclude_unset=True)
     if "name" in fields and fields["name"] is not None:
         fields["name"] = _clean_name(fields["name"])
@@ -227,7 +228,7 @@ async def update_location(
     except asyncpg.UniqueViolationError as exc:
         raise HTTPException(status.HTTP_409_CONFLICT, "location already exists") from exc
     if updated is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "location not found")
+        raise not_found("location")
     return updated
 
 
@@ -242,7 +243,7 @@ async def delete_location(
     repo = LocationRepo(conn)
     loc = await repo.get(loc_id)
     if loc is None or loc.org_id != org_id:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "location not found")
+        raise not_found("location")
     await repo.delete(loc_id)
 
 

@@ -39,6 +39,7 @@ from raggie_control_plane.api.deps import (
     require_system,
     require_workspace,
 )
+from raggie_control_plane.api.errors import not_found
 from raggie_control_plane.authz import Action
 from raggie_control_plane.config import settings
 from raggie_control_plane.db.repositories import (
@@ -186,7 +187,7 @@ async def reindex_workspace_documents(
     collection (e.g. after a failed batch). Point ids are deterministic."""
     workspace = await WorkspaceRepo(conn).get(workspace_id)
     if workspace is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "workspace not found")
+        raise not_found("workspace")
     target = await ingest_target(profile, conn)
     return await reindex_workspace(conn, publisher, workspace, target)
 
@@ -259,7 +260,7 @@ async def upload_document(
 ) -> Document:
     workspace = await WorkspaceRepo(conn).get(workspace_id)
     if workspace is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "workspace not found")
+        raise not_found("workspace")
     await _validate_folder(conn, folder_id, workspace_id)
     target = await ingest_target(profile, conn)
 
@@ -352,7 +353,7 @@ async def _load_workspace_doc(
     """Fetch a non-deleted document and assert it belongs to this workspace."""
     doc = await DocumentRepo(conn).get(document_id)
     if doc is None or doc.workspace_id != workspace_id or doc.deleted_at is not None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "document not found")
+        raise not_found("document")
     return doc
 
 
@@ -373,7 +374,7 @@ async def archive_document(
     await _load_workspace_doc(conn, workspace_id, document_id)
     archived = await DocumentRepo(conn).archive(document_id)
     if archived is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "document not found")
+        raise not_found("document")
     await _publish_document_deleted(publisher, archived, purge_object=False)
     return archived
 
@@ -393,7 +394,7 @@ async def delete_document(
     (purge_object=true): the worker drops the Qdrant chunks AND the MinIO object."""
     doc = await _load_workspace_doc(conn, workspace_id, document_id)
     if not await DocumentRepo(conn).soft_delete(document_id):
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "document not found")
+        raise not_found("document")
     await _publish_document_deleted(publisher, doc, purge_object=True)
 
 
@@ -418,7 +419,7 @@ async def move_document(
     await _validate_folder(conn, body.folder_id, workspace_id)
     moved = await DocumentRepo(conn).move(document_id, body.folder_id)
     if moved is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "document not found")
+        raise not_found("document")
     return moved
 
 
@@ -478,7 +479,7 @@ async def create_folder(
 ) -> DocumentFolder:
     workspace = await WorkspaceRepo(conn).get(workspace_id)
     if workspace is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "workspace not found")
+        raise not_found("workspace")
     name = _clean_folder_name(body.name)
     await _assert_parent_in_workspace(conn, body.parent_folder_id, workspace_id)
     try:
@@ -504,7 +505,7 @@ async def update_folder(
     repo = DocumentFolderRepo(conn)
     folder = await repo.get(folder_id)
     if folder is None or folder.workspace_id != workspace_id:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "folder not found")
+        raise not_found("folder")
     fields = body.model_dump(exclude_unset=True)
     if "name" in fields and fields["name"] is not None:
         fields["name"] = _clean_folder_name(fields["name"])
@@ -523,7 +524,7 @@ async def update_folder(
     except asyncpg.UniqueViolationError as exc:
         raise HTTPException(status.HTTP_409_CONFLICT, "folder already exists") from exc
     if updated is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "folder not found")
+        raise not_found("folder")
     return updated
 
 
@@ -545,7 +546,7 @@ async def delete_folder(
     doc_repo = DocumentRepo(conn)
     folder = await folder_repo.get(folder_id)
     if folder is None or folder.workspace_id != workspace_id:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "folder not found")
+        raise not_found("folder")
 
     # Enumerate the whole subtree of folders, then every non-deleted doc within it.
     subtree_ids = await folder_repo.descendant_ids(folder_id)
@@ -632,7 +633,7 @@ async def create_upload(
 ) -> CreateUploadOut:
     workspace = await WorkspaceRepo(conn).get(workspace_id)
     if workspace is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "workspace not found")
+        raise not_found("workspace")
     # Refuse up front rather than after gigabytes of parts.
     await ingest_target(profile, conn)
     if body.size is not None and body.size > settings.max_upload_bytes:
@@ -693,7 +694,7 @@ async def complete_upload(
     _assert_key_in_workspace(body.object_key, workspace_id)
     workspace = await WorkspaceRepo(conn).get(workspace_id)
     if workspace is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "workspace not found")
+        raise not_found("workspace")
     if not body.parts:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "no parts")
     part_numbers = [part.part_number for part in body.parts]

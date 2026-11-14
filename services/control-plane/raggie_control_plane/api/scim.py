@@ -23,6 +23,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel
 
 from raggie_control_plane.api.deps import get_conn
+from raggie_control_plane.api.errors import not_found
 from raggie_control_plane.config import settings
 from raggie_control_plane.db.repositories import TeamRepo, UserRepo
 from raggie_control_plane.models import User
@@ -74,7 +75,7 @@ def _is_scim_managed(user: User, org_id: UUID) -> bool:
 async def _org_user(conn: asyncpg.Connection, org_id: UUID, user_id: UUID) -> User:
     user = await UserRepo(conn).get(user_id)
     if user is None or user.org_id != org_id:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "user not found")
+        raise not_found("user")
     return user
 
 
